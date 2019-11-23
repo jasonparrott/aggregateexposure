@@ -10,13 +10,9 @@ public class FenwickTree {
         private final Position position;
         private int value;
 
-        PositionNode(Position position, int index, int value) {
+        PositionNode(Position position, int value) {
             this.position = position;
             this.value = value;
-        }
-
-        int getExposure() {
-            return position.getExposure();
         }
 
         int getValue() {
@@ -34,7 +30,7 @@ public class FenwickTree {
     public FenwickTree(Position[] positions)  {
         tree = new PositionNode[positions.length + 1];
         for(int i = 1; i <= positions.length; i++)
-            tree[i] = new PositionNode(positions[i-1], i, 0);
+            tree[i] = new PositionNode(positions[i-1], 0);
 
         try {
             for (int i = 0; i < positions.length; ++i) {
@@ -75,23 +71,4 @@ public class FenwickTree {
             lock.unlock();
         }
     }
-
-//    private class PositionUpdateCallback implements Runnable {
-//        private final int index;
-//        private final FenwickTree tree;
-//
-//        private PositionUpdateCallback(int index, FenwickTree tree) {
-//            this.index = index;
-//            this.tree = tree;
-//        }
-//
-//        @Override
-//        public void run() {
-//            try {
-//                tree.update(index);
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
-//        }
-//    }
 }
