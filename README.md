@@ -59,6 +59,7 @@ Valuations | Clients | Min Positions | Max Positions | Total Positions | Updates
 
 ## scaling
 This has been tested across a series of VMs from 4 to 32 cores, and shows very linear performance characteristics. We see a transaction rate very stable at around 1000/ms, scaling linearly with number of cores
+
 | Cores | Trans   | Time | trans/time   | avg          |
 |-------|---------|------|--------------|--------------|
 | 4     | 1120931 | 1131 | 991\.0972591 | 964\.3617213 |
