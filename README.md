@@ -57,3 +57,26 @@ Valuations | Clients | Min Positions | Max Positions | Total Positions | Updates
 20000	| 500	| 2000 | 10000 | 9008265 | 4502657 | 4178 | 1077706.319
 10000 |	1000 | 2000 | 10000 | 18034070 | 17414787 | 10370 | 1679343.009
 
+## scaling
+This has been tested across a series of VMs from 4 to 32 cores, and shows very linear performance characteristics. We see a transaction rate very stable at around 1000/ms, scaling linearly with number of cores
+| Cores | Trans   | Time | trans/time   | avg          |
+|-------|---------|------|--------------|--------------|
+| 4     | 1120931 | 1131 | 991\.0972591 | 964\.3617213 |
+| 4     | 1057818 | 1129 | 936\.9512843 |
+| 4     | 1076959 | 1126 | 956\.446714  |
+| 4     | 1045923 | 1075 | 972\.9516279 |
+| 8     | 1636411 | 1525 | 1073\.056393 | 1055\.560256 |
+| 8     | 1658717 | 1601 | 1036\.050593 |
+| 8     | 1666251 | 1521 | 1095\.497041 |
+| 8     | 1611937 | 1584 | 1017\.636995 |
+| 16    | 3005562 | 2965 | 1013\.68027  | 1036\.422401 |
+| 16    | 3529944 | 4004 | 881\.6043956 |
+| 16    | 3833239 | 3682 | 1041\.075231 |
+| 16    | 3447799 | 2851 | 1209\.329709 |
+| 32    | 4470244 | 4042 | 1105\.94854  | 1031\.893884 |
+| 32    | 4384245 | 4358 | 1006\.022258 |
+| 32    | 4495832 | 4158 | 1081\.248677 |
+| 32    | 4508268 | 4825 | 934\.3560622 |
+
+The nature of the per-client updates also means that we can partition clients in order to scale the system horizontally, even dynamically by spinning up new instances of compute as necessary. 
+
