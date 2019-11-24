@@ -79,5 +79,5 @@ This has been tested across a series of VMs from 4 to 32 cores, and shows very l
 | 32    | 4495832 | 4158 | 1081\.248677 |
 | 32    | 4508268 | 4825 | 934\.3560622 |
 
-The nature of the per-client updates also means that we can partition clients in order to scale the system horizontally, even dynamically by spinning up new instances of compute as necessary. 
+The nature of the per-client updates also means that we can partition clients in order to scale the system horizontally, even dynamically by spinning up new instances of compute as necessary. These tests were done using the 20000 valuation/500 client/2000-10000 position set of hyper parameters.
 
