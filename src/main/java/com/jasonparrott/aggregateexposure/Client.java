@@ -1,12 +1,12 @@
 package com.jasonparrott.aggregateexposure;
 
-import com.jasonparrott.aggregateexposure.model.Position;
+import com.jasonparrott.aggregateexposure.model.Trade;
 
 import java.util.Objects;
 
 public class Client {
     private final int id;
-    private Position[] positions;
+    private Trade[] trades;
     private FenwickTree valuationTree;
 
     public Client(int id) {
@@ -17,15 +17,15 @@ public class Client {
         return id;
     }
 
-    public Position[] getPositions() {
-        return positions;
+    public Trade[] getTrades() {
+        return trades;
     }
 
-    public void setPositions(Position[] positions) {
-        this.positions = positions;
-        for(int i = 0; i < positions.length; ++i) {
+    public void setTrades(Trade[] trades) {
+        this.trades = trades;
+        for(int i = 0; i < trades.length; ++i) {
             int finalI = i;
-            positions[i].registerUpdateCallback((diff) -> {
+            trades[i].registerUpdateCallback((diff) -> {
                 try {
                     valuationTree.update(finalI, diff);
                 } catch (InterruptedException e) {
@@ -33,7 +33,7 @@ public class Client {
                 }
             });
         }
-        valuationTree = new FenwickTree(positions);
+        valuationTree = new FenwickTree(trades);
     }
 
     @Override

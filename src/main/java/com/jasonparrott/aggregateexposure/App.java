@@ -7,7 +7,7 @@ import com.jasonparrott.aggregateexposure.generator.OptionGenerator;
 import com.jasonparrott.aggregateexposure.generator.PositionGenerator;
 import com.jasonparrott.aggregateexposure.generator.SwapGenerator;
 import com.jasonparrott.aggregateexposure.model.MarketValuation;
-import com.jasonparrott.aggregateexposure.model.Position;
+import com.jasonparrott.aggregateexposure.model.Trade;
 
 import java.time.Duration;
 import java.util.Collection;
@@ -25,7 +25,7 @@ public class App {
 //    private static int MAX_POSITIONS_PER_ASSETCLASS = 5000;
     private static Random r = new Random();
 
-    private static Multimap<MarketValuation, Position> positionMultiMap = MultimapBuilder
+    private static Multimap<MarketValuation, Trade> positionMultiMap = MultimapBuilder
                                                                             .hashKeys() // we have a well defined hash
                                                                             .linkedHashSetValues(3 * 2250) // 3 products * mid per asset class
                                                                             .build();
@@ -45,13 +45,13 @@ public class App {
         // build the modes
         long positionCount = 0L;
         for(int i = 0; i < clients; ++i) {
-            List<Position> positions = new LinkedList<>();
+            List<Trade> trades = new LinkedList<>();
             Client client = new Client(i);
-            positions.addAll(createPositions(client, swapGenerator, marketValuationEngine, minPerAssetClass, maxPerAssetClass));
-            positions.addAll(createPositions(client, bondGenerator, marketValuationEngine, minPerAssetClass, maxPerAssetClass));
-            positions.addAll(createPositions(client, optionGenerator, marketValuationEngine, minPerAssetClass, maxPerAssetClass));
-            positionCount += positions.size();
-            client.setPositions(positions.toArray(new Position[positions.size()]));
+            trades.addAll(createPositions(client, swapGenerator, marketValuationEngine, minPerAssetClass, maxPerAssetClass));
+            trades.addAll(createPositions(client, bondGenerator, marketValuationEngine, minPerAssetClass, maxPerAssetClass));
+            trades.addAll(createPositions(client, optionGenerator, marketValuationEngine, minPerAssetClass, maxPerAssetClass));
+            positionCount += trades.size();
+            client.setTrades(trades.toArray(new Trade[trades.size()]));
         }
 
         System.out.println(String.format("Created collection of %d clients using %d positions in %d market valuations",
@@ -63,13 +63,27 @@ public class App {
         long start = System.nanoTime();
         final AtomicLong updateCount = new AtomicLong(0L);
         for(int i = 0; i < 10000; ++i) {
-            MarketValuation valuation = marketValuationEngine.getRandomValulation();
-            valuation.update(r.nextInt(200)); // somewhere between 0 and 200
-            for (final Position position : positionMultiMap.get(valuation)) {
-                executor.submit(() -> {
-                    position.setExposure((valuation.getValue())); // set exposure to some portion of valuation as we're not actually computing it
-                    updateCount.getAndIncrement();
+            // either a trade update or a market valuation update
+            if (System.nanoTime() % 5 == 0) {
+                // trades updated
+                // grab a random bucket
+                MarketValuation valuation = marketValuationEngine.getRandomValulation();
+                // pick a few randomly
+                positionMultiMap.get(valuation).stream().filter(t->System.nanoTime() % 4 == 0).forEach(t-> {
+
                 });
+
+
+            } else {
+                // marketData update
+                MarketValuation valuation = marketValuationEngine.getRandomValulation();
+                valuation.update(r.nextInt(200)); // somewhere between 0 and 200
+                for (final Trade trade : positionMultiMap.get(valuation)) {
+                    executor.submit(() -> {
+                        trade.updateMarketValuation(valuation);
+                        updateCount.getAndIncrement();
+                    });
+                }
             }
         }
         long end = System.nanoTime();
@@ -77,19 +91,19 @@ public class App {
         System.out.println(String.format("%d updates took: %d ms", updateCount.longValue(), duration.toMillis() ));
     }
 
-    private static Collection<Position> createPositions(Client client,
-                                                        PositionGenerator generator,
-                                                        MarketValuationEngine marketValuationEngine,
-                                                        int minPerAssetClass,
-                                                        int maxPerAssetClass) {
+    private static Collection<Trade> createPositions(Client client,
+                                                     PositionGenerator generator,
+                                                     MarketValuationEngine marketValuationEngine,
+                                                     int minPerAssetClass,
+                                                     int maxPerAssetClass) {
         int count = minPerAssetClass + r.nextInt(maxPerAssetClass - minPerAssetClass);
-        LinkedList<Position> positions = new LinkedList<>();
+        LinkedList<Trade> trades = new LinkedList<>();
         for(int i = 0; i < count; ++i) {
-            Position position = generator.createPosition(client, marketValuationEngine.getRandomValulation());
-            positions.add(position);
-            positionMultiMap.put(position.getMarketValuation(), position);
+            Trade trade = generator.createPosition(client, marketValuationEngine.getRandomValulation());
+            trades.add(trade);
+            positionMultiMap.put(trade.getMarketValuation(), trade);
         }
-        return positions;
+        return trades;
     }
 
 

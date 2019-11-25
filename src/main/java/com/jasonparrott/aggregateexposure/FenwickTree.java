@@ -1,17 +1,15 @@
 package com.jasonparrott.aggregateexposure;
 
-import com.jasonparrott.aggregateexposure.model.Position;
+import com.jasonparrott.aggregateexposure.model.Trade;
 
 import java.util.concurrent.locks.ReentrantLock;
 
 public class FenwickTree {
 
     private class PositionNode {
-        private final Position position;
         private int value;
 
-        PositionNode(Position position, int value) {
-            this.position = position;
+        PositionNode(int value) {
             this.value = value;
         }
 
@@ -27,14 +25,14 @@ public class FenwickTree {
     private PositionNode[] tree;
     private ReentrantLock lock = new ReentrantLock();
 
-    public FenwickTree(Position[] positions)  {
-        tree = new PositionNode[positions.length + 1];
-        for(int i = 1; i <= positions.length; i++)
-            tree[i] = new PositionNode(positions[i-1], 0);
+    public FenwickTree(Trade[] trades)  {
+        tree = new PositionNode[trades.length + 1];
+        for(int i = 1; i <= trades.length; i++)
+            tree[i] = new PositionNode(0);
 
         try {
-            for (int i = 0; i < positions.length; ++i) {
-                update(i, positions[i].getExposure());
+            for (int i = 0; i < trades.length; ++i) {
+                update(i, trades[i].getOpenRisk()) ;
             }
         } catch (InterruptedException ie) {
             Thread.interrupted();

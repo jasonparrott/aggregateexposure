@@ -2,13 +2,13 @@ package com.jasonparrott.aggregateexposure.generator;
 
 import com.jasonparrott.aggregateexposure.Client;
 import com.jasonparrott.aggregateexposure.model.MarketValuation;
-import com.jasonparrott.aggregateexposure.model.OptionPosition;
-import com.jasonparrott.aggregateexposure.model.Position;
+import com.jasonparrott.aggregateexposure.model.OptionTrade;
+import com.jasonparrott.aggregateexposure.model.Trade;
 
 public class OptionGenerator implements PositionGenerator {
 
     @Override
-    public Position createPosition(Client client, MarketValuation valuation) {
-        return new OptionPosition(client.getId(), valuation);
+    public Trade createPosition(Client client, MarketValuation valuation) {
+        return new OptionTrade(marketValuation, tradeAction, riskCalculator, client.getId(), valuation);
     }
 }
