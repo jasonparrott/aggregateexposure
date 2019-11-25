@@ -1,4 +1,7 @@
 # aggregateexposure 
+
+![](https://github.com/jasonparrott/aggregateexposure/workflows/Java%20CI/badge.svg)
+
 This is an example app for compute aggregate exposure for a set of clients having position in a set of market valuations (instruments). 
 
 # design goals
