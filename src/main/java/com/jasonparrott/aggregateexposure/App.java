@@ -60,7 +60,7 @@ public class App {
         final AtomicLong updateCount = new AtomicLong(0L);
         for (int i = 0; i < 10000; ++i) {
             // either a trade update or a market valuation update
-            if (System.nanoTime() % 5 == 0) {
+            if (updateCount.get() % 5 == 0) {
                 // trades updated
                 // grab a random bucket
                 MarketValuation valuation = marketValuationEngine.getRandomValulation();
@@ -68,7 +68,9 @@ public class App {
                 long nanotime = System.nanoTime();
                 positionMultiMap.get(valuation).stream().filter(t -> nanotime % 4 == 0).forEach(t -> {
                     TradeAction nextAction = findNextAction(t.getAction(), nanotime);
-                    t.updateTradeAction(nextAction);
+                    if (nextAction != null)
+                        t.updateTradeAction(nextAction);
+                    updateCount.getAndIncrement();
                 });
             } else {
                 // marketData update
@@ -88,6 +90,9 @@ public class App {
     }
 
     private static TradeAction findNextAction(TradeAction action, long nanoTime) {
+        if (action == null)
+            return TradeAction.Amend;
+
         switch (action) {
             case Cancel:
                 return null; // no further actions
@@ -108,11 +113,11 @@ public class App {
                         return TradeAction.Reset;
                     case 8:
                         return TradeAction.Cancel;
+                    default:
+                        return TradeAction.Amend;
                 }
             }
-            break;
         }
-        return TradeAction.Amend;
     }
 
 
