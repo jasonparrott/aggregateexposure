@@ -1,5 +1,6 @@
 package com.jasonparrott.aggregateexposure.model;
 
+import com.jasonparrott.aggregateexposure.RiskCalculationException;
 import com.jasonparrott.aggregateexposure.RiskCalculator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +15,7 @@ public class SwapTrade extends LinearProduct {
     private final UUID id;
     private final int clientId;
 
-    public SwapTrade(MarketValuation marketValuation, TradeAction action, LocalDate today, LocalDate previous, RiskCalculator riskCalculator, UUID id, int clientId) {
+    public SwapTrade(MarketValuation marketValuation, TradeAction action, LocalDate today, LocalDate previous, RiskCalculator riskCalculator, UUID id, int clientId) throws RiskCalculationException {
         super(marketValuation, action, today, previous, riskCalculator);
         this.id = id;
         this.clientId = clientId;

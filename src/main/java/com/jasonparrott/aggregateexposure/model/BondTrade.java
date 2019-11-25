@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -16,7 +15,7 @@ public class BondTrade extends LinearProduct {
     private final UUID id;
     private final int clientId;
 
-    public BondTrade(MarketValuation marketValuation, TradeAction action, LocalDate today, LocalDate previous, RiskCalculator riskCalculator, UUID id, int clientId) {
+    public BondTrade(MarketValuation marketValuation, TradeAction action, LocalDate today, LocalDate previous, RiskCalculator riskCalculator, UUID id, int clientId) throws RiskCalculationException {
         super(marketValuation, action, today, previous, riskCalculator);
         this.id = id;
         this.clientId = clientId;

@@ -1,6 +1,4 @@
-package com.jasonparrott.aggregateexposure;
-
-import com.jasonparrott.aggregateexposure.model.Trade;
+package com.jasonparrott.aggregateexposure.model;
 
 import java.util.Objects;
 
@@ -23,7 +21,7 @@ public class Client {
 
     public void setTrades(Trade[] trades) {
         this.trades = trades;
-        for(int i = 0; i < trades.length; ++i) {
+        for (int i = 0; i < trades.length; ++i) {
             int finalI = i;
             trades[i].registerUpdateCallback((diff) -> {
                 try {
@@ -34,6 +32,10 @@ public class Client {
             });
         }
         valuationTree = new FenwickTree(trades);
+    }
+
+    public int getExposure() throws InterruptedException {
+        return valuationTree.sum(trades.length);
     }
 
     @Override

@@ -9,6 +9,7 @@ import java.util.Random;
 
 public class OptionCalculator implements RiskCalculator {
     private final Random r = new Random();
+
     @Override
     public int calculateRisk(Trade trade, LocalDate asOf, MarketValuation valuation) {
         return r.nextInt(2000);

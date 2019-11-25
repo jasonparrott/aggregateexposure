@@ -11,60 +11,57 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 public abstract class LinearProduct implements Trade {
+    private static DateTimeFormatter ddMMMyy = DateTimeFormatter.ofPattern("dd-MMM-yy");
     private final Logger logger = LoggerFactory.getLogger(getClass());
-
-    private MarketValuation marketValuation;
-    private int openRisk;
-    private int intradayRisk;
-
-    private Consumer<Integer> updateCallback;
-
-    private final TradeAction action;
     private final LocalDate today;
     private final LocalDate previous;
     private final RiskCalculator riskCalculator;
+    private MarketValuation marketValuation;
+    private int openRisk;
+    private int intradayRisk;
+    private TradeAction action;
+    private Consumer<Integer> updateCallback;
 
-    private static DateTimeFormatter ddMMMyy = DateTimeFormatter.ofPattern("dd-MMM-yy");
-
-    public LinearProduct(MarketValuation marketValuation, TradeAction action, LocalDate today, LocalDate previous, RiskCalculator riskCalculator) {
+    public LinearProduct(MarketValuation marketValuation, TradeAction action, LocalDate today, LocalDate previous, RiskCalculator riskCalculator) throws RiskCalculationException {
         this.marketValuation = marketValuation;
         this.action = action;
         this.today = today;
         this.previous = previous;
         this.riskCalculator = riskCalculator;
+        setOpenRisk(calculateRisk(previous));
     }
 
     @Override
-    public void updateTrade(Trade updatedTrade) {
+    public void updateTradeAction(TradeAction update) {
+        action = update;
         int originalRisk = getOpenRisk() + getIntradayRisk();
         try {
-            switch (updatedTrade.getAction()) {
+            switch (update) {
                 case New:
-                    setOpenRisk(0);
-                    setIntradayRisk(calculateRisk(this, today));
+                    setIntradayRisk(calculateRisk(today));
                     originalRisk = 0;
+                    setOpenRisk(0);
                     break;
                 case LateBooked:
-                    setOpenRisk(calculateRisk(updatedTrade, previous));
+                    setOpenRisk(calculateRisk(previous));
                     break;
                 case EarlyBooked:
-                    // do nothing
-                    break;
+                    return;
                 case Cancel:
                     setIntradayRisk(-1 * openRisk);
                     break;
                 case Amend:
-                    setIntradayRisk(calculateRisk(updatedTrade, today) - getOpenRisk());
+                    setIntradayRisk(calculateRisk(today) - getOpenRisk());
                     break;
                 case Reset:
-                    setOpenRisk(calculateRisk(updatedTrade, today));
+                    setOpenRisk(calculateRisk(today));
                     break;
             }
+
+            int difference = (getOpenRisk() + getIntradayRisk()) - originalRisk;
+            updateCallback.accept(difference);
         } catch (RiskCalculationException rce) {
             logger.warn("Error calculating risk.", rce);
-        } finally {
-            int difference = originalRisk - (getOpenRisk() + getIntradayRisk());
-            updateCallback.accept(difference);
         }
     }
 
@@ -77,17 +74,20 @@ public abstract class LinearProduct implements Trade {
     public void updateMarketValuation(MarketValuation newValuation) {
         marketValuation = newValuation;
         try {
-            setIntradayRisk(calculateRisk(this, today));
+            int originalIntradayRisk = getIntradayRisk();
+            setIntradayRisk(calculateRisk(today));
+            int difference = getIntradayRisk() - originalIntradayRisk;
+            updateCallback.accept(difference);
         } catch (RiskCalculationException rce) {
             logger.warn("Error calculating risk.", rce);
         }
     }
 
-    protected int calculateRisk(Trade trade, LocalDate asOf) throws RiskCalculationException {
+    protected int calculateRisk(LocalDate asOf) throws RiskCalculationException {
         if (asOf.equals(getToday())) {
-            return riskCalculator.calculateRisk(this, getToday(), marketValuation);
+            return riskCalculator.calculateRisk(this, asOf, marketValuation);
         } else if (asOf.equals(getPrevious())) {
-            return riskCalculator.calculateRisk(this, getPrevious(), marketValuation);
+            return riskCalculator.calculateRisk(this, asOf, marketValuation);
         }
 
         // unknown asOf
@@ -105,22 +105,22 @@ public abstract class LinearProduct implements Trade {
         return openRisk;
     }
 
-    @Override
-    public int getIntradayRisk() {
-        return intradayRisk;
+    protected void setOpenRisk(int openRisk) {
+        this.openRisk = openRisk;
     }
 
     @Override
-    public MarketValuation getMarketValuation() {
-        return marketValuation;
+    public int getIntradayRisk() {
+        return intradayRisk;
     }
 
     protected void setIntradayRisk(int intradayRisk) {
         this.intradayRisk = intradayRisk;
     }
 
-    protected void setOpenRisk(int openRisk) {
-        this.openRisk = openRisk;
+    @Override
+    public MarketValuation getMarketValuation() {
+        return marketValuation;
     }
 
     protected LocalDate getToday() {
@@ -150,4 +150,6 @@ public abstract class LinearProduct implements Trade {
     public int hashCode() {
         return Objects.hash(marketValuation, action, today, previous);
     }
+
+
 }

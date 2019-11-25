@@ -6,6 +6,16 @@ This is an example app for compute aggregate exposure for a set of clients havin
 * allow multiple kinds of assets to be contained in the position sets
 * allow easy addition of new types of assets if necessary in the future
 
+# extension
+In order to extend this to include additinal product classes, do the following
+1. Provide a Trade implementation. If your product is Linear you can extend LinearProduct and leverage existing workflows.
+1. Provide a RiskCalculator for your new Trade type that correctly values risk given the trade and applicable MarketValuation data
+1. Enhance your PortfolioBuilder to generate your new Trade type with your new RiskCalculator during portfolio construction
+
+Keep in mind that the update callback triggered by trade or market updates is a diff between the previous
+risk and thw newly calculated risk. The details of that calculation will be specific to your
+trade type and its workflow.
+
 # implementation
 ## client valuation
 Per-client value is stored as a Fenwick Tree of positions. As these data structures naturally represent summed values, 
