@@ -1,11 +1,14 @@
 package com.jasonparrott.aggregateexposure.model;
 
+import com.google.common.collect.Multimap;
 import com.jasonparrott.aggregateexposure.RiskCalculationException;
-import com.jasonparrott.aggregateexposure.calculators.OptionCalculator;
+import com.jasonparrott.aggregateexposure.calculators.graph.Calculator;
+import com.jasonparrott.aggregateexposure.calculators.product.OptionCalculator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -16,18 +19,22 @@ public class OptionTrade implements Trade {
     private final UUID id;
     private final int clientId;
     private TradeAction tradeAction;
-    private MarketValuation marketValuation;
     private Consumer<Integer> updateCallback;
 
     private int openRisk;
     private int intradayRisk;
+    private final Collection<Calculator> inputs;
 
-    public OptionTrade(MarketValuation marketValuation, TradeAction tradeAction, OptionCalculator riskCalculator, UUID id, int clientId) throws RiskCalculationException {
-        this.marketValuation = marketValuation;
+    public OptionTrade(Collection<Calculator> inputs, Multimap<Calculator, Calculator> interestSet, TradeAction tradeAction, OptionCalculator riskCalculator, int clientId) throws RiskCalculationException {
         this.tradeAction = tradeAction;
         this.riskCalculator = riskCalculator;
-        this.id = id;
+        this.id =UUID.randomUUID();
         this.clientId = clientId;
+        this.inputs = inputs;
+        for(Calculator c : interestSet.values()) {
+            c.registerForChanges(this::sourceChanged);
+        }
+
         setIntradayRisk(calculateRisk());
     }
 
@@ -57,15 +64,12 @@ public class OptionTrade implements Trade {
     }
 
     protected int calculateRisk() throws RiskCalculationException {
-        return riskCalculator.calculateRisk(this, LocalDate.now(), marketValuation);
+        return riskCalculator.calculateRisk(this, LocalDate.now(), inputs);
     }
 
-    @Override
-    public void updateMarketValuation(MarketValuation newValuation) {
-        marketValuation = newValuation;
+    public void sourceChanged(Calculator calculator) {
         try {
             setIntradayRisk(calculateRisk());
-
             int difference = (getOpenRisk() + getIntradayRisk());
             updateCallback.accept(difference);
         } catch (RiskCalculationException rce) {
@@ -99,11 +103,6 @@ public class OptionTrade implements Trade {
     @Override
     public TradeAction getAction() {
         return tradeAction;
-    }
-
-    @Override
-    public MarketValuation getMarketValuation() {
-        return marketValuation;
     }
 
     @Override

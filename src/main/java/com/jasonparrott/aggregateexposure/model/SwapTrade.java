@@ -1,12 +1,14 @@
 package com.jasonparrott.aggregateexposure.model;
 
+import com.google.common.collect.Multimap;
 import com.jasonparrott.aggregateexposure.RiskCalculationException;
 import com.jasonparrott.aggregateexposure.RiskCalculator;
+import com.jasonparrott.aggregateexposure.calculators.graph.Calculator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
-import java.util.Objects;
+import java.util.Collection;
 import java.util.UUID;
 
 public class SwapTrade extends LinearProduct {
@@ -15,29 +17,14 @@ public class SwapTrade extends LinearProduct {
     private final UUID id;
     private final int clientId;
 
-    public SwapTrade(MarketValuation marketValuation, TradeAction action, LocalDate today, LocalDate previous, RiskCalculator riskCalculator, UUID id, int clientId) throws RiskCalculationException {
-        super(marketValuation, action, today, previous, riskCalculator);
-        this.id = id;
+    public SwapTrade(Collection<Calculator> inputs, Multimap<Calculator, Calculator> interstSet, TradeAction action, LocalDate today, LocalDate previous, RiskCalculator riskCalculator, int clientId) throws RiskCalculationException {
+        super(inputs, interstSet, action, today, previous, riskCalculator);
+        this.id = UUID.randomUUID();
         this.clientId = clientId;
     }
-
+    
     @Override
     public int getClientId() {
-        return clientId;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        if (!super.equals(o)) return false;
-        SwapTrade bondTrade = (SwapTrade) o;
-        return clientId == bondTrade.clientId &&
-                Objects.equals(id, bondTrade.id);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(super.hashCode(), id, clientId);
+        return 0;
     }
 }

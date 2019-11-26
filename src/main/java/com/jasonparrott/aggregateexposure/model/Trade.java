@@ -13,9 +13,5 @@ public interface Trade {
 
     void updateTradeAction(TradeAction update); // assumption is that underlying trade info has been updated before calling this.
 
-    void updateMarketValuation(MarketValuation newValuation); // same trade details, new market valuation
-
-    MarketValuation getMarketValuation();
-
     void registerUpdateCallback(Consumer<Integer> callback);
 }

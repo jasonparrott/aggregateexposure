@@ -1,17 +1,17 @@
 package com.jasonparrott.aggregateexposure.model;
 
 public class MarketValuation {
-    private int value;
+    private double value;
 
-    public MarketValuation(int value) {
+    public MarketValuation(double value) {
         this.value = value;
     }
 
-    public int getValue() {
+    public double getValue() {
         return value;
     }
 
-    public void update(int newValue) {
+    public void update(double newValue) {
         value = newValue;
     }
 }
