@@ -4,6 +4,8 @@
 
 This is an example app for compute aggregate exposure for a set of clients having position in a set of market valuations (instruments). 
 
+# NOTE: This project is currently being rewored to use a graph based calculation engine, and that work is on the graphsourced- branch(es). It will be merged back here when complete but is not yet finished.
+
 # design goals
 * allow quick updates to large numbers of positions based on changes in the underlying valuation
 * allow multiple kinds of assets to be contained in the position sets
