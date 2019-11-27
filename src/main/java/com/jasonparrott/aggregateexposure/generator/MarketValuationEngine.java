@@ -1,4 +1,4 @@
-package com.jasonparrott.aggregateexposure;
+package com.jasonparrott.aggregateexposure.generator;
 
 import com.jasonparrott.aggregateexposure.model.MarketValuation;
 

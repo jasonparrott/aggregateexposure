@@ -1,9 +1,7 @@
 package com.jasonparrott.aggregateexposure;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.MultimapBuilder;
-import com.jasonparrott.aggregateexposure.calculators.graph.Calculator;
+import com.jasonparrott.aggregateexposure.calculators.product.MetricsCalculator;
+import com.jasonparrott.aggregateexposure.calculators.product.ProductMetrics;
 import com.jasonparrott.aggregateexposure.model.*;
 import org.junit.Before;
 import org.junit.Rule;
@@ -14,8 +12,6 @@ import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
 
 import java.time.LocalDate;
-import java.util.Collection;
-import java.util.UUID;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.assertThat;
@@ -31,27 +27,26 @@ public class FenwickTreeTest {
     @Mock
     private MarketValuation valuation;
     @Mock
-    private RiskCalculator calculator;
+    private MetricsCalculator calculator;
 
     @Mock
-    private Calculator c1;
-    @Mock
-    private Calculator c2;
-    @Mock
-    private Calculator c3;
+    private ProductMetrics metrics;
 
-    private Collection<Calculator> inputs = ImmutableList.of(c1, c2);
-    private Multimap<Calculator, Calculator> interestSet = MultimapBuilder.hashKeys().linkedHashSetValues().build();
+//    @Mock
+//    private Calculator c1;
+//    @Mock
+//    private Calculator c2;
+//    @Mock
+//    private Calculator c3;
 
     @Before
     public void setup() {
-        interestSet.put(c2, c3);
     }
 
     @Test
     public void testCreateTree() throws RiskCalculationException {
         Trade[] trades = new Trade[]{
-                new SwapTrade(inputs, interestSet, TradeAction.New, TODAY, PREVIOUS, calculator, 0)
+                new SwapTrade(TradeAction.New, TODAY, PREVIOUS, calculator, 0)
         };
         FenwickTree tree = new FenwickTree(trades);
         assertThat(tree, is(not(nullValue())));
@@ -59,12 +54,12 @@ public class FenwickTreeTest {
 
     @Test
     public void testInitialSum() throws InterruptedException, RiskCalculationException {
-        doReturn(10).when(calculator).calculateRisk(any(Trade.class), eq(PREVIOUS), any(Collection.class));
+        doReturn(10).when(calculator).calculateRisk(any(Trade.class), eq(TODAY), eq(PREVIOUS));
         Trade[] trades = new Trade[]{
-                new SwapTrade(inputs, interestSet, TradeAction.New, TODAY, PREVIOUS, calculator, 0),
-                new SwapTrade(inputs, interestSet, TradeAction.New, TODAY, PREVIOUS, calculator, 0),
-                new SwapTrade(inputs, interestSet, TradeAction.New, TODAY, PREVIOUS, calculator, 0),
-                new SwapTrade(inputs, interestSet, TradeAction.New, TODAY, PREVIOUS, calculator, 0)
+                new SwapTrade(TradeAction.New, TODAY, PREVIOUS, calculator, 0),
+                new SwapTrade(TradeAction.New, TODAY, PREVIOUS, calculator, 0),
+                new SwapTrade(TradeAction.New, TODAY, PREVIOUS, calculator, 0),
+                new SwapTrade(TradeAction.New, TODAY, PREVIOUS, calculator, 0)
         };
         FenwickTree tree = new FenwickTree(trades);
         assertThat(tree.sum(3), is(40));
@@ -72,12 +67,12 @@ public class FenwickTreeTest {
 
     @Test
     public void testUpdateSumPositive() throws InterruptedException, RiskCalculationException {
-        doReturn(10).when(calculator).calculateRisk(any(Trade.class), eq(PREVIOUS), any(Collection.class));
+        doReturn(10).when(calculator).calculateRisk(any(Trade.class), eq(TODAY), eq(PREVIOUS));
         Trade[] trades = new Trade[]{
-                new SwapTrade(inputs, interestSet, TradeAction.New, TODAY, PREVIOUS, calculator, 0),
-                new SwapTrade(inputs, interestSet, TradeAction.New, TODAY, PREVIOUS, calculator, 0),
-                new SwapTrade(inputs, interestSet, TradeAction.New, TODAY, PREVIOUS, calculator, 0),
-                new SwapTrade(inputs, interestSet, TradeAction.New, TODAY, PREVIOUS, calculator, 0)
+                new SwapTrade(TradeAction.New, TODAY, PREVIOUS, calculator, 0),
+                new SwapTrade(TradeAction.New, TODAY, PREVIOUS, calculator, 0),
+                new SwapTrade(TradeAction.New, TODAY, PREVIOUS, calculator, 0),
+                new SwapTrade(TradeAction.New, TODAY, PREVIOUS, calculator, 0)
         };
 
         FenwickTree tree = new FenwickTree(trades);
@@ -94,7 +89,7 @@ public class FenwickTreeTest {
         }
 
         assertThat(tree.sum(3), is(40));
-        doReturn(15).when(calculator).calculateRisk(any(Trade.class), eq(TODAY), any(Collection.class));
+        doReturn(15).when(calculator).calculateRisk(any(Trade.class), eq(TODAY), eq(PREVIOUS));
 
         trades[2].updateTradeAction(TradeAction.Amend);
         assertThat(tree.sum(3), is(45));
@@ -102,12 +97,13 @@ public class FenwickTreeTest {
 
     @Test
     public void testUpdateSumNegative() throws InterruptedException, RiskCalculationException {
-        doReturn(10).when(calculator).calculateRisk(any(Trade.class), eq(PREVIOUS), any(Collection.class));
+        doReturn(10d).when(metrics).getIntradayChange();
+        doReturn(metrics).when(calculator).calculateRisk(any(Trade.class), eq(TODAY), eq(PREVIOUS));
         Trade[] trades = new Trade[]{
-                new SwapTrade(inputs, interestSet, TradeAction.New, TODAY, PREVIOUS, calculator, 0),
-                new SwapTrade(inputs, interestSet, TradeAction.New, TODAY, PREVIOUS, calculator, 0),
-                new SwapTrade(inputs, interestSet, TradeAction.New, TODAY, PREVIOUS, calculator, 0),
-                new SwapTrade(inputs, interestSet, TradeAction.New, TODAY, PREVIOUS, calculator, 0)
+                new SwapTrade(TradeAction.New, TODAY, PREVIOUS, calculator, 0),
+                new SwapTrade(TradeAction.New, TODAY, PREVIOUS, calculator, 0),
+                new SwapTrade(TradeAction.New, TODAY, PREVIOUS, calculator, 0),
+                new SwapTrade(TradeAction.New, TODAY, PREVIOUS, calculator, 0)
         };
 
         FenwickTree tree = new FenwickTree(trades);
@@ -124,7 +120,7 @@ public class FenwickTreeTest {
         }
 
         assertThat(tree.sum(3), is(40));
-        doReturn(5).when(calculator).calculateRisk(any(Trade.class), eq(TODAY), any(Collection.class));
+        doReturn(5).when(calculator).calculateRisk(any(Trade.class), eq(TODAY), eq(PREVIOUS));
         trades[2].updateTradeAction(TradeAction.Amend);
         assertThat(tree.sum(3), is(35));
     }

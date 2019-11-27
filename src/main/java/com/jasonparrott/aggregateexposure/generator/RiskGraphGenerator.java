@@ -1,8 +1,9 @@
 package com.jasonparrott.aggregateexposure.generator;
 
-import com.jasonparrott.aggregateexposure.calculators.graph.Calculator;
-import com.jasonparrott.aggregateexposure.calculators.graph.IntermediateCalculator;
-import com.jasonparrott.aggregateexposure.calculators.graph.MarketValuationCalculator;
+import com.jasonparrott.aggregateexposure.TradeUpdateManager;
+import com.jasonparrott.aggregateexposure.graph.CalculationNode;
+import com.jasonparrott.aggregateexposure.graph.IntermediateCalculator;
+import com.jasonparrott.aggregateexposure.graph.MarketValuationCalculator;
 import com.jasonparrott.aggregateexposure.model.MarketValuation;
 import org.jgrapht.Graph;
 import org.jgrapht.graph.DefaultEdge;
@@ -10,8 +11,6 @@ import org.jgrapht.graph.DirectedAcyclicGraph;
 
 import java.util.*;
 import java.util.stream.IntStream;
-
-import static java.util.stream.Collectors.toList;
 
 public class RiskGraphGenerator {
 
@@ -21,7 +20,7 @@ public class RiskGraphGenerator {
      * @param freeCalculatorPercentage - percentage of "free" nodes to insert randomly between valuations.
      * @return
      */
-    public static Graph<Calculator, DefaultEdge> generateGraph(Collection<MarketValuation> valuations, double freeCalculatorPercentage)
+    public static Graph<CalculationNode, DefaultEdge> generateGraph(Collection<MarketValuation> valuations, double freeCalculatorPercentage, TradeUpdateManager tradeUpdateManager)
     {
         if (freeCalculatorPercentage < 0.0d)
             throw new IllegalArgumentException("free calculator percent must be between 0.0 and 1.0");
@@ -30,21 +29,24 @@ public class RiskGraphGenerator {
         if (valuations == null)
             throw new IllegalArgumentException("must provide valuations");
 
-        Graph<Calculator, DefaultEdge> graph = new DirectedAcyclicGraph<>(DefaultEdge.class);
+        Graph<CalculationNode, DefaultEdge> graph = new DirectedAcyclicGraph<>(DefaultEdge.class);
 
         System.out.println("Generating pricing graph.");
-        List<Calculator> calculators = valuations.stream().map(MarketValuationCalculator::new).collect(toList());
+        List<CalculationNode> nodes = new LinkedList<>();
+        valuations.forEach(v -> nodes.add(new CalculationNode(new MarketValuationCalculator(v, tradeUpdateManager))));
+        //List<Calculator> calculators = valuations.stream().map(v->new MarketValuationCalculator(v)).collect(toList());
         for(int i = 0; i < valuations.size() * freeCalculatorPercentage; ++i) {
-            calculators.add(new IntermediateCalculator());
+            //calculators.add(new IntermediateCalculator(Collections.emptyList()));
+            nodes.add(new CalculationNode(new IntermediateCalculator(Collections.emptyList(), tradeUpdateManager)));
         }
         System.out.println("Adding verticies to graph.");
-        calculators.stream().forEach(c-> graph.addVertex(c));
+        //calculators.stream().forEach(c->graph.addVertex(new CalculationNode(c)));
+        nodes.forEach(graph::addVertex);
 
         // implemented from https://stackoverflow.com/a/12792416
-
         System.out.println("Calculating acyclic tree.");
         Random r = new Random();
-        int n = calculators.size() * (calculators.size() - 1) / 2;
+        int n = nodes.size() * (nodes.size() - 1) / 2;
         int e = n/2; // edges
         IntStream ints = r.ints(0, n - e );
         List<Integer> sample = new LinkedList<>();
@@ -58,7 +60,7 @@ public class RiskGraphGenerator {
         }
 
         List<Integer> endpoints = new LinkedList<>();
-        for(int i = 0; i < calculators.size(); ++i) {
+        for (int i = 0; i < nodes.size(); ++i) {
             endpoints.add(i);
         }
 
@@ -68,8 +70,12 @@ public class RiskGraphGenerator {
             int tailIndex = (int) (0.5 + Math.sqrt((s + 1) * 2));
             int headIndex = s - tailIndex * (tailIndex - 1) / 2;
 
-            Calculator head = calculators.get(headIndex);
-            Calculator tail = calculators.get(tailIndex);
+            CalculationNode head = nodes.get(headIndex);
+            CalculationNode tail = nodes.get(tailIndex);
+
+            if (tail.getCalculator() instanceof IntermediateCalculator && head.getCalculator() != null) {
+                ((IntermediateCalculator) tail.getCalculator()).addInput(head.getCalculator());
+            }
 
             graph.addEdge(head, tail);
         }
