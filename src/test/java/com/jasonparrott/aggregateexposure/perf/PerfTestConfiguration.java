@@ -1,11 +1,13 @@
-package com.jasonparrott.aggregateexposure;
+package com.jasonparrott.aggregateexposure.perf;
 
+import com.jasonparrott.aggregateexposure.DelegatingExecutorSecurityGroupUpdateManager;
+import com.jasonparrott.aggregateexposure.PortfolioBuilder;
+import com.jasonparrott.aggregateexposure.RiskEngine;
+import com.jasonparrott.aggregateexposure.SecurityGroupUpdateManager;
 import com.jasonparrott.aggregateexposure.calculators.product.AnnotationBasedMetricsCalculatorFactory;
 import com.jasonparrott.aggregateexposure.calculators.product.MetricsCalculatorFactory;
-import com.jasonparrott.aggregateexposure.generator.FakePortfolioGenerator;
 import com.jasonparrott.aggregateexposure.generator.MarketValuationEngine;
 import com.jasonparrott.aggregateexposure.generator.StaticGraphGenerator;
-import com.jasonparrott.aggregateexposure.generator.ValuationAgitator;
 import com.jasonparrott.aggregateexposure.graph.CalculationNode;
 import com.jasonparrott.aggregateexposure.graph.GraphUpdateStrategy;
 import com.jasonparrott.aggregateexposure.graph.SubgraphUpdateStrategy;
@@ -22,18 +24,18 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Configuration
-public class AggregateExposureConfiguration {
+//@Profile("perftest")
+//@ActiveProfiles("perftest")
+public class PerfTestConfiguration {
 
     @Value("${valuations:8}")
     private int valuations;
-    @Value("${assets.min:1000}")
-    private int minPerAssetClass;
-    @Value("${assets.max:5000}")
-    private int maxPerAssetClass;
+    @Value("${assets.min:5000}")
+    private int assertsPerClass;
     @Value("${assets.count:50}")
     private int securities;
 
-    @Value("${iterations:10000}")
+    @Value("${iterations:1000000000}")
     private int iterations;
 
     @Bean
@@ -42,18 +44,13 @@ public class AggregateExposureConfiguration {
     }
 
     @Bean
-    public ValuationAgitator valuationAgitator() throws ExportException {
-        return new ValuationAgitator(iterations, valuationEngine(), executorService(), riskEngine());
-    }
-
-    @Bean
     public PortfolioBuilder portfolioBuilder() throws ExportException {
-        return new FakePortfolioGenerator(calculationGraph(), minPerAssetClass, maxPerAssetClass, securities);
+        return new StaticPortfolioGenerator(calculationGraph(), assertsPerClass, securities);
     }
 
     @Bean
     public ValuationMapperFactory valuationMapperFactory() {
-        return new AnnotationBasedValuationMapperFactory();
+        return new AnnotationBasedValuationMapperFactory("com.jasonparrott.aggregateexposure.perf.mapper");
     }
 
     @Bean

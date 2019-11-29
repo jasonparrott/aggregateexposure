@@ -6,5 +6,6 @@ public interface Trade {
     int getSecurityId();
 
     int getPosition();
+
     TradeAction getAction();
 }

@@ -13,8 +13,8 @@ public abstract class BaseCalculator implements Calculator {
     private final ReentrantLock lock = new ReentrantLock();
     private final Collection<Calculator> inputs;
     private final SecurityGroupUpdateManager updateManager;
-    private CalculationResult result;
     private final String label;
+    private CalculationResult result;
 
     protected BaseCalculator(Collection<Calculator> inputs, SecurityGroupUpdateManager updateManager, String label) {
         this.inputs = inputs;

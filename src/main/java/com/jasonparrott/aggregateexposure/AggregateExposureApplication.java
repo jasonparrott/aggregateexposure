@@ -21,22 +21,18 @@ import java.util.Map;
 public class AggregateExposureApplication implements ApplicationRunner {
     private static LocalDate TODAY = LocalDate.of(2019, 11, 13);
     private static LocalDate PREV = LocalDate.of(2019, 11, 13);
+    @Autowired
+    public RiskEngine riskEngine;
+    @Autowired
+    public ValuationAgitator agitator;
+    @Autowired
+    public PortfolioBuilder portfolioBuilder;
+    @Value("${clients:200}")
+    private int clients;
 
     public static void main(String[] args) {
         SpringApplication.run(AggregateExposureApplication.class, args);
     }
-
-    @Autowired
-    public RiskEngine riskEngine;
-
-    @Autowired
-    public ValuationAgitator agitator;
-
-    @Autowired
-    public PortfolioBuilder portfolioBuilder;
-
-    @Value("${clients:200}")
-    private int clients;
 
     @Override
     public void run(ApplicationArguments args) throws Exception {

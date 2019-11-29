@@ -8,15 +8,15 @@ import org.hamcrest.TypeSafeMatcher;
 import java.util.Collection;
 
 public class ContainedWithinMatcher<T> extends TypeSafeMatcher<Collection<T>> {
-    public static Matcher<Collection> containedWithin(Collection items) {
-        return new ContainedWithinMatcher(items);
-    }
-
     private final Collection<T> items;
 
     public ContainedWithinMatcher(Collection<T> items) {
         Validate.notNull(items);
         this.items = items;
+    }
+
+    public static Matcher<Collection> containedWithin(Collection items) {
+        return new ContainedWithinMatcher(items);
     }
 
     @Override

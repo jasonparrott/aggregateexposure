@@ -22,7 +22,8 @@ public class RiskGraphGenerator {
 
     /**
      * Generates a directed acyclic pricing graph
-     * @param valuations - valuations which will be updated by the market
+     *
+     * @param valuations               - valuations which will be updated by the market
      * @param freeCalculatorPercentage - percentage of "free" nodes to insert randomly between valuations.
      * @return
      */
@@ -39,7 +40,7 @@ public class RiskGraphGenerator {
         System.out.println("Generating pricing graph.");
         List<CalculationNode> nodes = new LinkedList<>();
         valuations.forEach(v -> nodes.add(new CalculationNode(new MarketValuationCalculator(v, securityGroupUpdateManager))));
-        for(int i = 0; i < valuations.size() * freeCalculatorPercentage; ++i) {
+        for (int i = 0; i < valuations.size() * freeCalculatorPercentage; ++i) {
             //calculators.add(new IntermediateCalculator(Collections.emptyList()));
             nodes.add(new CalculationNode(new IntermediateCalculator(new LinkedList<>(), securityGroupUpdateManager, UUID.randomUUID().toString())));
         }
@@ -50,15 +51,15 @@ public class RiskGraphGenerator {
         System.out.println("Calculating acyclic tree.");
         Random r = new Random();
         int n = nodes.size() * (nodes.size() - 1) / 2;
-        int e = n/2; // edges
-        IntStream ints = r.ints(0, n - e );
+        int e = n / 2; // edges
+        IntStream ints = r.ints(0, n - e);
         List<Integer> sample = new LinkedList<>();
         PrimitiveIterator.OfInt iterator = ints.iterator();
-        for(int i = 0; i < e && iterator.hasNext(); ++i) {
+        for (int i = 0; i < e && iterator.hasNext(); ++i) {
             sample.add(iterator.nextInt());
         }
         Collections.sort(sample);
-        for(int i = 0; i < e; ++i) {
+        for (int i = 0; i < e; ++i) {
             sample.set(i, sample.get(i) + i);
         }
 
@@ -69,7 +70,7 @@ public class RiskGraphGenerator {
 
         Collections.shuffle(endpoints);
 
-        for(Integer s : sample) {
+        for (Integer s : sample) {
             int tailIndex = (int) (0.5 + Math.sqrt((s + 1) * 2));
             int headIndex = s - tailIndex * (tailIndex - 1) / 2;
 

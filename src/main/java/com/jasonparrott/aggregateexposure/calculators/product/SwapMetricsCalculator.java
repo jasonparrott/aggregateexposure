@@ -38,4 +38,6 @@ public class SwapMetricsCalculator implements MetricsCalculator {
     public boolean canCalculate(ProductType productType) {
         return ProductType.Swap.equals(productType);
     }
+
+
 }

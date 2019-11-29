@@ -21,13 +21,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 
 public class FenwickTreeTest {
+    private static LocalDate TODAY = LocalDate.of(2019, 11, 13);
+    private static LocalDate PREVIOUS = LocalDate.of(2019, 11, 12);
     @Rule
     public MockitoRule rule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
-
-    private static LocalDate TODAY = LocalDate.of(2019, 11, 13);
-
-    private static LocalDate PREVIOUS = LocalDate.of(2019, 11, 12);
-
     @Mock
     private MarketValuation valuation;
 
