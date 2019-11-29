@@ -1,6 +1,6 @@
 package com.jasonparrott.aggregateexposure.generator;
 
-import com.jasonparrott.aggregateexposure.TradeUpdateManager;
+import com.jasonparrott.aggregateexposure.SecurityGroupUpdateManager;
 import com.jasonparrott.aggregateexposure.graph.CalculationNode;
 import com.jasonparrott.aggregateexposure.graph.IntermediateCalculator;
 import com.jasonparrott.aggregateexposure.graph.MarketValuationCalculator;
@@ -8,7 +8,13 @@ import com.jasonparrott.aggregateexposure.model.MarketValuation;
 import org.jgrapht.Graph;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.DirectedAcyclicGraph;
+import org.jgrapht.io.ComponentNameProvider;
+import org.jgrapht.io.DOTExporter;
+import org.jgrapht.io.ExportException;
+import org.jgrapht.io.GraphExporter;
 
+import java.io.StringWriter;
+import java.io.Writer;
 import java.util.*;
 import java.util.stream.IntStream;
 
@@ -20,8 +26,7 @@ public class RiskGraphGenerator {
      * @param freeCalculatorPercentage - percentage of "free" nodes to insert randomly between valuations.
      * @return
      */
-    public static Graph<CalculationNode, DefaultEdge> generateGraph(Collection<MarketValuation> valuations, double freeCalculatorPercentage, TradeUpdateManager tradeUpdateManager)
-    {
+    public static Graph<CalculationNode, DefaultEdge> generateGraph(Collection<MarketValuation> valuations, double freeCalculatorPercentage, SecurityGroupUpdateManager securityGroupUpdateManager) throws ExportException {
         if (freeCalculatorPercentage < 0.0d)
             throw new IllegalArgumentException("free calculator percent must be between 0.0 and 1.0");
         if (freeCalculatorPercentage > 1.0d)
@@ -33,14 +38,12 @@ public class RiskGraphGenerator {
 
         System.out.println("Generating pricing graph.");
         List<CalculationNode> nodes = new LinkedList<>();
-        valuations.forEach(v -> nodes.add(new CalculationNode(new MarketValuationCalculator(v, tradeUpdateManager))));
-        //List<Calculator> calculators = valuations.stream().map(v->new MarketValuationCalculator(v)).collect(toList());
+        valuations.forEach(v -> nodes.add(new CalculationNode(new MarketValuationCalculator(v, securityGroupUpdateManager))));
         for(int i = 0; i < valuations.size() * freeCalculatorPercentage; ++i) {
             //calculators.add(new IntermediateCalculator(Collections.emptyList()));
-            nodes.add(new CalculationNode(new IntermediateCalculator(Collections.emptyList(), tradeUpdateManager)));
+            nodes.add(new CalculationNode(new IntermediateCalculator(new LinkedList<>(), securityGroupUpdateManager, UUID.randomUUID().toString())));
         }
         System.out.println("Adding verticies to graph.");
-        //calculators.stream().forEach(c->graph.addVertex(new CalculationNode(c)));
         nodes.forEach(graph::addVertex);
 
         // implemented from https://stackoverflow.com/a/12792416
@@ -77,9 +80,40 @@ public class RiskGraphGenerator {
                 ((IntermediateCalculator) tail.getCalculator()).addInput(head.getCalculator());
             }
 
-            graph.addEdge(head, tail);
+            try {
+                graph.addEdge(head, tail);
+            } catch (IllegalArgumentException iae) {
+                // skip
+            }
         }
         System.out.println("Finished constructing graph.");
+
+        ComponentNameProvider<CalculationNode> vertexIdProvider = new ComponentNameProvider<CalculationNode>() {
+            int i = 0;
+
+            public String getName(CalculationNode node) {
+                return String.valueOf(i);
+            }
+        };
+        ComponentNameProvider<CalculationNode> vertexLabelProvider = new ComponentNameProvider<CalculationNode>() {
+            public String getName(CalculationNode node) {
+                if (node.getCalculator() instanceof IntermediateCalculator) {
+                    return "IM: " + node.getCalculator().getInputs().size();
+                } else {
+                    MarketValuationCalculator calculator = (MarketValuationCalculator) node.getCalculator();
+
+                    return String.format("MarketValue: ");
+                }
+
+            }
+        };
+
+        Writer writer = new StringWriter();
+        GraphExporter<CalculationNode, DefaultEdge> exporter =
+                new DOTExporter<>(vertexIdProvider, vertexLabelProvider, null);
+        exporter.exportGraph(graph, writer);
+        System.out.println(writer.toString());
+
         return graph;
     }
 

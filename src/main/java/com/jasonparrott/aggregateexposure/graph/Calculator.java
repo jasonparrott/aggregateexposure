@@ -1,20 +1,20 @@
 package com.jasonparrott.aggregateexposure.graph;
 
-import com.jasonparrott.aggregateexposure.TradeUpdateManager;
-import com.jasonparrott.aggregateexposure.model.Trade;
+import com.jasonparrott.aggregateexposure.SecurityGroupUpdateManager;
+import com.jasonparrott.aggregateexposure.model.SecurityGroup;
 
 import java.util.Collection;
 
 public interface Calculator {
     CalculationResult getCalculationResult();
-
     void calculate();
-
     Collection<Calculator> getInputs();
 
-    void registerForChanges(Trade listener);
+    String getLabel();
 
-    void unregisterForChanges(Trade listener);
+    void registerForChanges(SecurityGroup listener);
 
-    TradeUpdateManager getUpdateManager();
+    void unregisterForChanges(SecurityGroup listener);
+
+    SecurityGroupUpdateManager getUpdateManager();
 }

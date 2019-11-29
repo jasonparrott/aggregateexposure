@@ -1,28 +1,41 @@
 package com.jasonparrott.aggregateexposure.model;
 
-import com.jasonparrott.aggregateexposure.RiskCalculationException;
-import com.jasonparrott.aggregateexposure.calculators.product.MetricsCalculator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.LocalDate;
-import java.util.UUID;
-
-public class BondTrade extends LinearProduct {
+public class BondTrade implements Trade {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private final UUID id;
-    private final int clientId;
+    private final int securityId;
+    private final ProductType productType;
 
-    public BondTrade(TradeAction action, LocalDate today, LocalDate previous, MetricsCalculator metricsCalculator, int clientId) throws RiskCalculationException {
-        super(action, today, previous, metricsCalculator);
-        id = UUID.randomUUID();
-        this.clientId = clientId;
+    private TradeAction tradeAction;
+    private int position;
+
+    public BondTrade(int securityId, ProductType productType, TradeAction tradeAction, int position) {
+        this.securityId = securityId;
+        this.productType = productType;
+        this.tradeAction = tradeAction;
+        this.position = position;
     }
 
+    @Override
+    public int getSecurityId() {
+        return securityId;
+    }
 
     @Override
-    public int getClientId() {
-        return clientId;
+    public int getPosition() {
+        return position;
+    }
+
+    @Override
+    public TradeAction getAction() {
+        return null;
+    }
+
+    @Override
+    public ProductType getProductType() {
+        return productType;
     }
 }

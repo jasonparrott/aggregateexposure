@@ -5,7 +5,8 @@ import org.jgrapht.Graph;
 import org.jgrapht.graph.DefaultEdge;
 
 import java.util.Set;
+import java.util.concurrent.Future;
 
 public interface GraphUpdateStrategy {
-    void update(Graph<CalculationNode, DefaultEdge> graph, Set<CalculationNode> leaves, MarketValuation valuation);
+    Future<?> update(Graph<CalculationNode, DefaultEdge> graph, Set<CalculationNode> leaves, MarketValuation valuation);
 }

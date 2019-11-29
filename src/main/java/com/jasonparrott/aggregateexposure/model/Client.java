@@ -4,7 +4,7 @@ import java.util.Objects;
 
 public class Client {
     private final int id;
-    private Trade[] trades;
+    private SecurityGroup[] trades;
     private FenwickTree valuationTree;
 
     public Client(int id) {
@@ -15,17 +15,17 @@ public class Client {
         return id;
     }
 
-    public Trade[] getTrades() {
+    public SecurityGroup[] getTrades() {
         return trades;
     }
 
-    public void setTrades(Trade[] trades) {
+    public void setTrades(SecurityGroup[] trades) {
         this.trades = trades;
         for (int i = 0; i < trades.length; ++i) {
             int finalI = i;
             trades[i].registerUpdateCallback((diff) -> {
                 try {
-                    valuationTree.update(finalI, diff);
+                    valuationTree.update(finalI, (Double) diff);
                 } catch (InterruptedException e) {
                     Thread.interrupted();
                 }

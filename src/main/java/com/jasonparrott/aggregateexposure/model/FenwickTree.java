@@ -6,14 +6,15 @@ public class FenwickTree {
 
     private PositionNode[] tree;
     private ReentrantLock lock = new ReentrantLock();
-    public FenwickTree(Trade[] trades) {
-        tree = new PositionNode[trades.length + 1];
-        for (int i = 1; i <= trades.length; i++)
+
+    public FenwickTree(SecurityGroup[] tradeGroups) {
+        tree = new PositionNode[tradeGroups.length + 1];
+        for (int i = 1; i <= tradeGroups.length; i++)
             tree[i] = new PositionNode(0);
 
         try {
-            for (int i = 0; i < trades.length; ++i) {
-                update(i, trades[i].getMetrics().getOpenRisk());
+            for (int i = 0; i < tradeGroups.length; ++i) {
+                update(i, tradeGroups[i].getMetrics().getOpenRisk());
             }
         } catch (InterruptedException ie) {
             Thread.interrupted();

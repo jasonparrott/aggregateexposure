@@ -10,8 +10,11 @@ import org.jgrapht.graph.DirectedAcyclicGraph;
 import org.jgrapht.traverse.BreadthFirstIterator;
 
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 public class SubgraphUpdateStrategy implements GraphUpdateStrategy {
     private final ExecutorService executorService;
@@ -21,19 +24,28 @@ public class SubgraphUpdateStrategy implements GraphUpdateStrategy {
     }
 
     @Override
-    public void update(final Graph<CalculationNode, DefaultEdge> graph, Set<CalculationNode> leaves, final MarketValuation valuation) {
-        executorService.submit(() -> {
-            // find all the paths in the subtree starting from the updated node
-            AllDirectedPaths<CalculationNode, DefaultEdge> allDirectedPaths = new AllDirectedPaths<>(graph);
-            List<GraphPath<CalculationNode, DefaultEdge>> pathList = allDirectedPaths.getAllPaths(
-                    ImmutableSet.of(valuationNode(valuation)),
-                    leaves,
-                    true,
-                    Integer.MAX_VALUE);
-            // build a subgraph of said nodes and edges. This guarantees we only traverse these nodes/edges once as duplicates are not
-            // put in the graph
-            DirectedAcyclicGraph<CalculationNode, DefaultEdge> subgraph = new DirectedAcyclicGraph<>(DefaultEdge.class);
-            try {
+    public Future<?> update(final Graph<CalculationNode, DefaultEdge> graph, Set<CalculationNode> leaves, final MarketValuation valuation) {
+        return executorService.submit(() -> {
+            DirectedAcyclicGraph<CalculationNode, DefaultEdge> subgraph;
+
+            Optional<CalculationNode> calcNode = graph.vertexSet().stream().filter(v -> v.equals(new MarketValuationCalculator(valuation, null))).findAny();
+            if (!calcNode.isPresent())
+                throw new NoSuchElementException("Could not find node in vertex set.");
+
+            if (calcNode.get().getSubgraph() != null) {
+                // already computed, just use the cached one
+                subgraph = (DirectedAcyclicGraph<CalculationNode, DefaultEdge>) calcNode.get().getSubgraph();
+            } else {
+                // find all the paths in the subtree starting from the updated node
+                AllDirectedPaths<CalculationNode, DefaultEdge> allDirectedPaths = new AllDirectedPaths<>(graph);
+                List<GraphPath<CalculationNode, DefaultEdge>> pathList = allDirectedPaths.getAllPaths(
+                        ImmutableSet.of(valuationNode(valuation)),
+                        leaves,
+                        true,
+                        Integer.MAX_VALUE);
+                // build a subgraph of said nodes and edges. This guarantees we only traverse these nodes/edges once as duplicates are not
+                // put in the graph
+                subgraph = new DirectedAcyclicGraph<>(DefaultEdge.class);
                 for (GraphPath<CalculationNode, DefaultEdge> path : pathList) {
                     CalculationNode start = null;
                     CalculationNode end = null;
@@ -42,7 +54,6 @@ public class SubgraphUpdateStrategy implements GraphUpdateStrategy {
                         end = node;
 
                         // we'll always have an end
-                        end.lock();
                         subgraph.addVertex(end);
                         if (start != null) {
                             subgraph.addVertex(start);
@@ -51,16 +62,18 @@ public class SubgraphUpdateStrategy implements GraphUpdateStrategy {
                     }
                 }
 
-                // top down (breadth first) traversal calculating each node
-                // this ensures we calc and changed inputs before the each node iteself
-                BreadthFirstIterator<CalculationNode, DefaultEdge> iterator = new BreadthFirstIterator<>(subgraph);
-                while (iterator.hasNext()) {
-                    CalculationNode node = (CalculationNode) iterator.next();
-                    node.getCalculator().calculate();
-                }
-            } finally {
-                subgraph.vertexSet().forEach(n -> n.unlock());
+                calcNode.get().setSubgraph(subgraph);
             }
+            // top down (breadth first) traversal calculating each node
+            // this ensures we calc and changed inputs before the each node iteself
+            BreadthFirstIterator<CalculationNode, DefaultEdge> iterator = new BreadthFirstIterator<>(subgraph);
+            while (iterator.hasNext()) {
+                CalculationNode node = iterator.next();
+                node.lock();
+                node.getCalculator().calculate();
+                node.unlock();
+            }
+
         });
     }
 

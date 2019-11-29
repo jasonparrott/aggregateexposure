@@ -1,6 +1,6 @@
 package com.jasonparrott.aggregateexposure.graph;
 
-import com.jasonparrott.aggregateexposure.TradeUpdateManager;
+import com.jasonparrott.aggregateexposure.SecurityGroupUpdateManager;
 import com.jasonparrott.aggregateexposure.model.MarketValuation;
 
 import java.util.Collections;
@@ -9,8 +9,8 @@ import java.util.Objects;
 public class MarketValuationCalculator extends BaseCalculator {
     private final MarketValuation valuation;
 
-    public MarketValuationCalculator(MarketValuation valuation, TradeUpdateManager updateManager) {
-        super(Collections.emptyList(), updateManager); // allows us to shortcut interating and just call the valuation
+    public MarketValuationCalculator(MarketValuation valuation, SecurityGroupUpdateManager updateManager) {
+        super(Collections.emptyList(), updateManager, valuation.getLabel()); // allows us to shortcut interating and just call the valuation
         this.valuation = valuation;
     }
 
@@ -22,6 +22,10 @@ public class MarketValuationCalculator extends BaseCalculator {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
+        if (o instanceof MarketValuation) {
+            return Objects.equals(valuation, o);
+        }
+
         if (o == null || getClass() != o.getClass()) return false;
         MarketValuationCalculator that = (MarketValuationCalculator) o;
         return Objects.equals(valuation, that.valuation);

@@ -14,7 +14,7 @@ public class MarketValuationEngine {
     public MarketValuationEngine(int numberOfValuations) {
         valuations = new ArrayList<>(numberOfValuations);
         for (int i = 0; i < numberOfValuations; ++i) {
-            valuations.add(new MarketValuation(r.nextInt(200)));
+            valuations.add(new MarketValuation(String.valueOf(i), r.nextInt(200)));
         }
     }
 

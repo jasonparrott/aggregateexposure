@@ -17,13 +17,15 @@ public class FakePortfolioGenerator implements PortfolioBuilder {
     private Graph<CalculationNode, DefaultEdge> riskGraph;
     private final int minPerAssetClass;
     private final int maxPerAssetClass;
+    private final int securities;
 
     private final Random r = new Random();
 
-    public FakePortfolioGenerator(Graph<CalculationNode, DefaultEdge> riskGraph, int minPerAssetClass, int maxPerAssetClass) {
+    public FakePortfolioGenerator(Graph<CalculationNode, DefaultEdge> riskGraph, int minPerAssetClass, int maxPerAssetClass, int securities) {
         this.riskGraph = riskGraph;
         this.minPerAssetClass = minPerAssetClass;
         this.maxPerAssetClass = maxPerAssetClass;
+        this.securities = securities;
     }
 
     @Override
@@ -42,9 +44,10 @@ public class FakePortfolioGenerator implements PortfolioBuilder {
                                               int maxPerAssetClass) throws RiskCalculationException {
         int count = minPerAssetClass + r.nextInt(maxPerAssetClass - minPerAssetClass);
         LinkedList<Trade> trades = new LinkedList<>();
+        int securityId = r.nextInt(securities);
         for (int i = 0; i < count; ++i) {
             Collection<CalculationNode> inputs = getRandomCalculators(allCalculators, r.nextInt(4));
-            Trade trade = generator.createPosition(client, inputs);
+            Trade trade = generator.createPosition(client, securityId, 100 + r.nextInt(10000));
             trades.add(trade);
         }
         return trades;
