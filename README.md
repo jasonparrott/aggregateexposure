@@ -4,8 +4,6 @@
 
 This is an example app for compute aggregate exposure for a set of clients having position in a set of market valuations (instruments). 
 
-# NOTE: This project is currently being rewored to use a graph based calculation engine, and that work is on the graphsourced- branch(es). It will be merged back here when complete but is not yet finished.
-
 # design goals
 * allow quick updates to large numbers of positions based on changes in the underlying valuation
 * allow multiple kinds of assets to be contained in the position sets
@@ -13,86 +11,113 @@ This is an example app for compute aggregate exposure for a set of clients havin
 
 # extension
 In order to extend this to include additional product classes, do the following
-1. Provide a Trade implementation. If your product is Linear you can extend LinearProduct and leverage existing workflows.
-1. Provide a RiskCalculator for your new Trade type that correctly values risk given the trade and applicable MarketValuation data
-1. Enhance your PortfolioBuilder to generate your new Trade type with your new RiskCalculator during portfolio construction
+1. Provide a Trade implementation. Select a security ID for it to return for each unique security within that type. 
+1. Provide a new ProductType. If yours does not fit into one of the existing product types, create a new enum value and
+have your new trade instances return this as its ProductType
+1. Provide a SecurityGroupValueMapper for your new ProductType if you created one. These are created by the framework via factories
+which you will also need to create. Your factory should implement the ValuationMapperFactory interface and be annotated
+with the `ValuationMapperProducer` annotation. Use the new ProductType you created above to denote that this is the factory for the
+mappers for your new product type. For example, `@ValuationMapperProducer(productType = ProductType.Swap)`
+1. Similarly, create a MetricsCalculator for your new ProductType, and an associated factory. This interface is
+`MetricsCalculatorFactory` and the annotation is `MetricsCalculatorProducer`. For example `@MetricsCalculatorProducer(productType = ProductType.Bond)`
 
-Keep in mind that the update callback triggered by trade or market updates is a difference between the previous
-risk and the newly calculated risk. The details of that calculation will be specific to your
-trade type and its workflow.
+Thats it. The framework will find the factories you created automatically based on your annotations, and use them
+when creating trade sets with your new product type. Your metrics calculator will be called by updates to the associated
+calculation graph nodes in order to compute the analytics.
 
 # implementation
 ## client valuation
+Trades are grouped by security ID and type into SecurityGroups. This is an aggregate container for a number of positions 
+of the same type. By grouping the positions in this way we can perform a smaller number of calculations when recomputing 
+risk. effectively this means batching the risk updates such that we apply 1 update across a large number of positions.
+
 Per-client value is stored as a Fenwick Tree of positions. As these data structures naturally represent summed values, 
 theyre an obvious candidate for this purpose. These data structures are very quick to update as changes in a child node only need
 update its parent nodes to the root in order to affect the overall valuation of the tree. 
 
+## calculation graph
+The implementation creates a calculation graph in order to provide source input to the risk calculations. This is a directed
+acyclic graph of compute nodes. Nodes may be direct market data input (ie driven by live market updates) or otherwise are
+intermediate calculation nodes. Intermediate nodes perform some arbitrary computation on 1 or more inputs from other nodes.
+
 ## valuation map
-The market valuations are multi-mapped to a collection of positions as they are created. This allows us quick access to the 
-position pool for each instrument as it is updated. 
+Each security group is mapped to 1 or more nodes in the compute graph. When these nodes are updated, it necessarily adjusts
+the risk profile of that security group, and an update task is created to be completed by a worker. The compute for each
+type of trade is done by a MetricsCalculator specific to that product type. 
 
 # runtime
-The application first creates its model, by generating a random set of positions for each of the supplied clients. These use random
-instruments from the pool, and generate a random number of positions in the range of the supplied min and max counts.
+The application first creates its model, by generating a random set of positions for each of the supplied clients. 
+These use random instruments from the pool, and generate a random number of positions in the range of the 
+supplied min and max counts. These are then grouped into SecurityGroups and fed into the engine.
 
 Once complete, the update process begins, selecting 10000 market valuations at random and updating its value. Then for each one of the 
 positions for this valuation all client valuations are updated to reflect the change in underlying market value. Timings are provided. Updates are dispatched to a work stealing thread pool on a per-valuation basis.
 
+# optimizations
+## batching
+SecurityGroups provide a large optimization compared to per-trade level updates. By aggregating positions we can
+avoid potentially hundreds of calculations and instead make a single one. In the future it may be worth while
+to further be able to partition the collection of trades for thing like per-action valuations, but this can
+be done within the existing groups, and is a secondary calculation. The core risk calculations should be batched
+as much as possible in order to update aggregate results as close to realtime as possible.
+![SecurityGroup dependent on 3 nodes](https://raw.githubusercontent.com/jasonparrott/aggregateexposure/master/doc/tradesetdepends.png)
+
+## subgraph updates
+The directed acyclic nature of our calculation graph implies that updates to parent nodes will potentially affect child
+nodes. This can cause a large number of revaliations to occur as we update nodes in the graph, and then by design
+cause their associated SecurityGroups to recalculate. As an optimization we choose not to update the full graph 
+when a value changes, but rather only the subtree affected by that update. 
+
+For example consider this graph containing live market data and intermediate calculation nodes.
+![Full Calculation Graph](https://raw.githubusercontent.com/jasonparrott/aggregateexposure/master/doc/fullgraph.png)
+Suppose that node 19, a live market data node is updated. 
+![Node 19 Update](https://raw.githubusercontent.com/jasonparrott/aggregateexposure/master/doc/19update.png)
+Its clear that nodes such as 1,2,3, and 10 are not affected by this update. If we were to update the whole 
+graph, we would update 21 nodes, and all trades in the system. This is inefficient.
+
+Therefore we should not evalue SecurityGroups assocaited with those nodes. Instead we find the subtree affected by this update. In this case
+that would be 19-18, and 18-21. There are actually only 3 nodes that need to be updated as shown here
+![Update Path Requiring Recalc](https://raw.githubusercontent.com/jasonparrott/aggregateexposure/master/doc/19updatepath.png)
+
+We can then recalc only SecurityGroups associated with nodes 19, 18, and 21 as a result of this market data change.
+ 
+## graph path caching
+The process of determining the connected subgraph from each node can be expensive, especially in large graphs.
+As a result we do not recompute the graph once a node has been updated once. This is a tradeoff in terms of 
+a dynamic graph in exchange for speed of updated. However I believe its unlikely that a graph will change
+structurally for a trade set within a single run. If necessary we could add some sort of "refresh" that periodically
+rebuilt the grid and paths if necessary but thats not been done here. I believe that its very likely the 
+graph will remain structurally identically featuring mostly live market updates to existing nodes, rather than
+new nodes being added ad-hoc.
+
 # command line
-`java -jar aggregateexposure.jar <MARKET VALUATIONS> <CLIENTS> <MIN POSITIONS> <MAX POSITIONS>`
+mvn springboot:run -Dvaluations=<MARKET VALUATIONS> -Dclients=<CLIENTS> -Dassets.min=<MIN POSITIONS> -Dassets.max=<MAX POSITIONS> -Dassets.count=<ASSETS COUNT>
 
 * MARKET VALUATIONS - Number of valuations 
 * CLIENTS - Number of clients
 * MIN POSITIONS - This is the minimum number of positions per asset class, per client.
 * MAX POSITIONS - This is the max number of positions per asset class, per client.
+* ASSETS COUNT - The number of securities to use in the pool of random instruments.
 
 # performance
-The following results have been found on my home PC.
-`apprunner@apprunner:~/aggregateexposure$ java -jar target/aggregateexposure-1.0-SNAPSHOT.jar 10000 200 500 5000`
-`Created collection of 200 clients using 1646473 positions in 10000 market valuations`
-`1532031 updates took: 1398 ms`
+ValuationPerfIT contains a JMH benchmark updating valuation notes in a complete pricing graph. This shows
+updates taking in the range of 16us / update.
 
-`apprunner@apprunner:~/aggregateexposure$ java -jar target/aggregateexposure-1.0-SNAPSHOT.jar 10000 500 500 5000`
-`Created collection of 500 clients using 4098708 positions in 10000 market valuations`
-`4102657 updates took: 3685 ms`
+`# Warmup Iteration   1: 16.727 us/op`
 
-`apprunner@apprunner:~/aggregateexposure$ java -jar target/aggregateexposure-1.0-SNAPSHOT.jar 20000 500 2000 10000`
-`Created collection of 500 clients using 9008265 positions in 20000 market valuations`
-`4502657 updates took: 4178 ms`
+` Iteration   1: 16.114 us/op`
 
-`apprunner@apprunner:~/aggregateexposure$ java -jar target/aggregateexposure-1.0-SNAPSHOT.jar 10000 1000 2000 10000`
-`Created collection of 1000 clients using 18034070 positions in 10000 market valuations`
-`17414787 updates took: 10370 ms`
+` Iteration   2: 16.077 us/op`
+
+` Iteration   3: 16.089 us/op`
+ 
+` Result "com.jasonparrott.aggregateexposure.perf.ValuationPerfIT.testValuations":`
+
+`   16.093 ±(99.9%) 0.344 us/op [Average]`
+
+`   (min, avg, max) = (16.077, 16.093, 16.114), stdev = 0.019`
+
+`   CI (99.9%): [15.749, 16.438] (assumes normal distribution)`
 
 
-Valuations | Clients | Min Positions | Max Positions | Total Positions | Updates Made | Time(ms) | Updates per Second
----------- | ------- | ------------- | ------------- | --------------- | ------------ | -------- | -------------------
-10000 |	200 |	500 | 5000 | 1646473 | 1532031 | 1398 | 1095873.391
-10000	| 500	| 500 | 5000 | 4098708 | 4102657 | 3685 | 1113339.756
-20000	| 500	| 2000 | 10000 | 9008265 | 4502657 | 4178 | 1077706.319
-10000 |	1000 | 2000 | 10000 | 18034070 | 17414787 | 10370 | 1679343.009
-
-## scaling
-This has been tested across a series of VMs from 4 to 32 cores, and shows very linear performance characteristics. I tested each of the 4 compute sizes 4 times and took averages of the transaction rate across them. We see a transaction rate very stable at around 1000/ms, scaling linearly with number of cores
-
-| Cores | Trans   | Time | trans/time   | avg          |
-|-------|---------|------|--------------|--------------|
-| 4     | 1120931 | 1131 | 991\.0972591 | 964\.3617213 |
-| 4     | 1057818 | 1129 | 936\.9512843 |
-| 4     | 1076959 | 1126 | 956\.446714  |
-| 4     | 1045923 | 1075 | 972\.9516279 |
-| 8     | 1636411 | 1525 | 1073\.056393 | 1055\.560256 |
-| 8     | 1658717 | 1601 | 1036\.050593 |
-| 8     | 1666251 | 1521 | 1095\.497041 |
-| 8     | 1611937 | 1584 | 1017\.636995 |
-| 16    | 3005562 | 2965 | 1013\.68027  | 1036\.422401 |
-| 16    | 3529944 | 4004 | 881\.6043956 |
-| 16    | 3833239 | 3682 | 1041\.075231 |
-| 16    | 3447799 | 2851 | 1209\.329709 |
-| 32    | 4470244 | 4042 | 1105\.94854  | 1031\.893884 |
-| 32    | 4384245 | 4358 | 1006\.022258 |
-| 32    | 4495832 | 4158 | 1081\.248677 |
-| 32    | 4508268 | 4825 | 934\.3560622 |
-
-The nature of the per-client updates also means that we can partition clients in order to scale the system horizontally, even dynamically by spinning up new instances of compute as necessary. These tests were done using the 20000 valuation/500 client/2000-10000 position set of hyper parameters.
-
+` # Run complete. Total time: 00:00:42`
