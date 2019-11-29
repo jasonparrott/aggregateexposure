@@ -1,21 +1,11 @@
 package com.jasonparrott.aggregateexposure.model;
 
-import java.util.function.Consumer;
-
 public interface Trade {
-    int getClientId();
+    ProductType getProductType();
 
-    int getOpenRisk();
+    int getSecurityId();
 
-    int getIntradayRisk();
+    int getPosition();
 
     TradeAction getAction();
-
-    void updateTradeAction(TradeAction update); // assumption is that underlying trade info has been updated before calling this.
-
-    void updateMarketValuation(MarketValuation newValuation); // same trade details, new market valuation
-
-    MarketValuation getMarketValuation();
-
-    void registerUpdateCallback(Consumer<Integer> callback);
 }

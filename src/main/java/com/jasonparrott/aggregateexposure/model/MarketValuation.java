@@ -1,17 +1,38 @@
 package com.jasonparrott.aggregateexposure.model;
 
-public class MarketValuation {
-    private int value;
+import java.util.Objects;
 
-    public MarketValuation(int value) {
+public class MarketValuation {
+    private final String label;
+    private double value;
+
+    public MarketValuation(String label, double value) {
+        this.label = label;
         this.value = value;
     }
 
-    public int getValue() {
+    public double getValue() {
         return value;
     }
 
-    public void update(int newValue) {
+    public void update(double newValue) {
         value = newValue;
+    }
+
+    public String getLabel() {
+        return label;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        MarketValuation valuation = (MarketValuation) o;
+        return Double.compare(valuation.value, value) == 0;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(value);
     }
 }

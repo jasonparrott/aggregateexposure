@@ -1,43 +1,41 @@
 package com.jasonparrott.aggregateexposure.model;
 
-import com.jasonparrott.aggregateexposure.RiskCalculationException;
-import com.jasonparrott.aggregateexposure.RiskCalculator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.LocalDate;
-import java.util.Objects;
-import java.util.UUID;
-
-public class BondTrade extends LinearProduct {
+public class BondTrade implements Trade {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private final UUID id;
-    private final int clientId;
+    private final int securityId;
+    private final ProductType productType;
 
-    public BondTrade(MarketValuation marketValuation, TradeAction action, LocalDate today, LocalDate previous, RiskCalculator riskCalculator, UUID id, int clientId) throws RiskCalculationException {
-        super(marketValuation, action, today, previous, riskCalculator);
-        this.id = id;
-        this.clientId = clientId;
+    private TradeAction tradeAction;
+    private int position;
+
+    public BondTrade(int securityId, ProductType productType, TradeAction tradeAction, int position) {
+        this.securityId = securityId;
+        this.productType = productType;
+        this.tradeAction = tradeAction;
+        this.position = position;
     }
 
     @Override
-    public int getClientId() {
-        return clientId;
+    public int getSecurityId() {
+        return securityId;
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        if (!super.equals(o)) return false;
-        BondTrade bondTrade = (BondTrade) o;
-        return clientId == bondTrade.clientId &&
-                Objects.equals(id, bondTrade.id);
+    public int getPosition() {
+        return position;
     }
 
     @Override
-    public int hashCode() {
-        return Objects.hash(super.hashCode(), id, clientId);
+    public TradeAction getAction() {
+        return null;
+    }
+
+    @Override
+    public ProductType getProductType() {
+        return productType;
     }
 }
