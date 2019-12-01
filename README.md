@@ -9,6 +9,49 @@ This is an example app for compute aggregate exposure for a set of clients havin
 * allow multiple kinds of assets to be contained in the position sets
 * allow easy addition of new types of assets if necessary in the future
 
+# components
+To understand the system design it is useful to become familiar with the components used in the eninge.
+
+## trade listener
+A source of trade infromation for the engine. This component is polled regularly by the engine looking for new trades.
+## position service
+A service which takes a trade and returns an associated position for that trade detail.
+## security group
+A collection of positions, sharing some common feature. This is the main aggregation unit in the system. The 
+nature of the agrigation is determined by the partitioner as described below. For example, if we wanted to
+group positions by the client's ID, each Security Group would represent 1 single client ID. 
+## partitioner
+A component which determines which Security Group to place a given position in. Two example partitioners given
+in the project are:
+* Client ID Partitioner - splits positions based on the client they are against
+* Client Credit Rating Partitioner - splits positions based on the credit rating of their client
+
+## calculation graph
+A directed acyclic graph which processes market data updates and provides a merket data input source for the engine.
+There are 2 kinds of nodes in the graph, as described below.
+
+### market valuation node
+A node providing raw market data to the graph. This is a direct input from some external market data update source,
+such as Reuters or BBG.
+
+### intermediate node
+A graph node which performs and operation on 1 or more other input nodes, but does not otherwise directly provide any
+other information. For example an intermediate node might sum the values of 2 other market valuation nodes.
+
+## metrics calculator
+A component which processes all of the current input values for a security group, and generates the current set of
+risk metrics for that group.
+
+### chained calculator
+A special kind of metrics calculator which holds a series of other calculators. This can be useful if you have 
+common calculation logic which you would like to apply to several product types. That logic can be put in its 
+own calculator and then added to the chain for any necessary products.
+ 
+## publisher
+A service which makes the calculation result available to other systems. This might publish to a queue, make a
+web service call, or take some other action. Examples given are ones which write updates to the console and to
+a log file. 
+
 # extension
 In order to extend this to include additional product classes, do the following
 1. Provide a Trade implementation. Select a security ID for it to return for each unique security within that type. 
@@ -20,6 +63,9 @@ with the `ValuationMapperProducer` annotation. Use the new ProductType you creat
 mappers for your new product type. For example, `@ValuationMapperProducer(productType = ProductType.Swap)`
 1. Similarly, create a MetricsCalculator for your new ProductType, and an associated factory. This interface is
 `MetricsCalculatorFactory` and the annotation is `MetricsCalculatorProducer`. For example `@MetricsCalculatorProducer(productType = ProductType.Bond)`
+If you are using the ChainedCalculator, simply add your new one to a chain.
+1. (optional) Create a Publisher. If you do not want to use one of the standard publishers, create a new custom
+Publisher. This publisher is responsible for making the computed metrics available externally.
 
 Thats it. The framework will find the factories you created automatically based on your annotations, and use them
 when creating trade sets with your new product type. Your metrics calculator will be called by updates to the associated
@@ -27,13 +73,9 @@ calculation graph nodes in order to compute the analytics.
 
 # implementation
 ## client valuation
-Trades are grouped by security ID and type into SecurityGroups. This is an aggregate container for a number of positions 
-of the same type. By grouping the positions in this way we can perform a smaller number of calculations when recomputing 
+Trades are grouped into SecurityGroups according to the logic in the configured Partitioner. This is an aggregate container 
+for a number of positions of the same type. By grouping the positions in this way we can perform a smaller number of calculations when recomputing 
 risk. effectively this means batching the risk updates such that we apply 1 update across a large number of positions.
-
-Per-client value is stored as a Fenwick Tree of positions. As these data structures naturally represent summed values, 
-theyre an obvious candidate for this purpose. These data structures are very quick to update as changes in a child node only need
-update its parent nodes to the root in order to affect the overall valuation of the tree. 
 
 ## calculation graph
 The implementation creates a calculation graph in order to provide source input to the risk calculations. This is a directed
@@ -41,17 +83,30 @@ acyclic graph of compute nodes. Nodes may be direct market data input (ie driven
 intermediate calculation nodes. Intermediate nodes perform some arbitrary computation on 1 or more inputs from other nodes.
 
 ## valuation map
-Each security group is mapped to 1 or more nodes in the compute graph. When these nodes are updated, it necessarily adjusts
-the risk profile of that security group, and an update task is created to be completed by a worker. The compute for each
-type of trade is done by a MetricsCalculator specific to that product type. 
+Each security group is mapped to 1 or more nodes in the compute graph by the associated ValuationMapper. When these nodes 
+are updated, it necessarily adjusts the risk profile of that security group, and an update task is created to be 
+completed by a worker. The compute for each type of trade is done by a MetricsCalculator specific to that product type. 
 
 # runtime
-The application first creates its model, by generating a random set of positions for each of the supplied clients. 
-These use random instruments from the pool, and generate a random number of positions in the range of the 
-supplied min and max counts. These are then grouped into SecurityGroups and fed into the engine.
+When a new trade is first added to the engine, the engine must initialize a new security group for that partitions
+trades. This process involves setting up the security group, registering it for input updates, and registering
+it as a provider of Metrics for the configured publisher. A sequence diagram of the processes is:
+![New Security Group Sequence](https://raw.githubusercontent.com/jasonparrott/aggregateexposure/master/doc/newsecgroup.png)
 
-Once complete, the update process begins, selecting 10000 market valuations at random and updating its value. Then for each one of the 
-positions for this valuation all client valuations are updated to reflect the change in underlying market value. Timings are provided. Updates are dispatched to a work stealing thread pool on a per-valuation basis.
+## market data updates
+When a market data update occurs, the calculation graph is updated such that all dependent nodes have new values,
+and interested security groups are notified. Those groups then begin a process to update their risk metrics utilizing
+the newly available input data. Once complete the groups will publish the upadate via the configured publisher.
+ ![Market Data Update Sequence](https://raw.githubusercontent.com/jasonparrott/aggregateexposure/master/doc/marketdataupdate.png)
+
+# deployment patterns
+The abilty to specify various kind of partitioners means that the same engine can be deployed multiple times 
+using separate partioners to get different risk aggregations. A typical deployment might look something like
+![Typical Deployment](https://raw.githubusercontent.com/jasonparrott/aggregateexposure/master/doc/riskreporting.png)
+Each of these instances could feed a reporting service such as Tableau Server which then presents the various
+aggregations to users in a concise manner. Notice on this sample report that each block of info could be generated
+by simply having a separate Partitioner for a different instance of the engine.
+![Sample Report](https://raw.githubusercontent.com/jasonparrott/aggregateexposure/master/doc/report.png)
 
 # optimizations
 ## batching
@@ -64,7 +119,7 @@ as much as possible in order to update aggregate results as close to realtime as
 
 ## subgraph updates
 The directed acyclic nature of our calculation graph implies that updates to parent nodes will potentially affect child
-nodes. This can cause a large number of revaliations to occur as we update nodes in the graph, and then by design
+nodes. This can cause a large number of valuations to occur as we update nodes in the graph, and then by design
 cause their associated SecurityGroups to recalculate. As an optimization we choose not to update the full graph 
 when a value changes, but rather only the subtree affected by that update. 
 
@@ -87,10 +142,13 @@ As a result we do not recompute the graph once a node has been updated once. Thi
 a dynamic graph in exchange for speed of updated. However I believe its unlikely that a graph will change
 structurally for a trade set within a single run. If necessary we could add some sort of "refresh" that periodically
 rebuilt the grid and paths if necessary but thats not been done here. I believe that its very likely the 
-graph will remain structurally identically featuring mostly live market updates to existing nodes, rather than
-new nodes being added ad-hoc.
+graph will remain structurally identical overtime, and instead feature mostly live market updates to existing nodes, 
+rather than new nodes being added ad-hoc.
 
 # command line
+The "DEMO" project contains a sample application of the risk engine. It mostly uses mock/fake data however so you
+are recomended to use it as a template and build you own input/output/calculators.
+
 mvn springboot:run -Dvaluations=<MARKET VALUATIONS> -Dclients=<CLIENTS> -Dassets.min=<MIN POSITIONS> -Dassets.max=<MAX POSITIONS> -Dassets.count=<ASSETS COUNT>
 
 * MARKET VALUATIONS - Number of valuations 
